@@ -1,0 +1,347 @@
+---
+title: "Assignment 7"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+__Student Name:__ Eliza Tsang
+__Student ID:__ 999606858
+
+## Assignment 7: Gene Networks
+
+```{r}
+cities <- read.delim("../Assignment_7_Tsang.Eliza/us_cities.txt",row.names = 1)
+head(cities)
+```
+
+```{r}
+plot(hclust(dist(cities))) 
+print(cities)
+```
+
+### EXERCISE 1: 
+**Extending the example that I gave for BOS/NY/DC, what are the distances that define each split in the West Coast side of the hclust plot?  **
+*Hint 1: Start with the distances between SF and LA. Then look at the difference between that cluster up to SEA*  
+*Hint 2: Print cities, you only need to look at the upper right triangle of data matrix.*
+
+SF-LA: 379
+
+SF/LA-SEA: 808
+
+**What is the city pair and distance the joins the East Coast and West Coast cities? Fill in the values.  **
+*Hint: Think Midwest.*
+
+```
+(Calculations)
+SF/LA/SEA-DEN: 1059
+SF/LA/SEA/DEN:-CHI: 996
+SF/LA/SEA/DEN/CHI-MIA: 1329
+
+BOS-NY: 206
+BOS/NY-DC: 233
+BOS/NY/DC-CHI: 671
+BOS/NY/DC/CHI-MIA: 1075
+```
+Answer: 
+DENVER-CHICAGO: 996
+
+
+### EXERCISE 2:
+
+```{r}
+DE_genes <- read.table("../Assignment_7_Tsang.Eliza/DEgenes_GxE.csv", sep = ",")
+head(DE_genes)
+```
+
+```{r}
+DE_gene_names <- row.names(DE_genes)
+head(DE_gene_names)
+
+brass_voom_E <- read.table("../Assignment_7_Tsang.Eliza/voom_transform_brassica.csv", sep = ",", header = TRUE)
+
+GxE_counts <- as.data.frame(brass_voom_E[DE_gene_names,])
+GxE_counts <- as.matrix(GxE_counts)
+head(GxE_counts)
+```
+
+```{r}
+hr <- hclust(dist(GxE_counts))
+plot(hr)
+```
+
+```{r}
+hc <- hclust(dist(t(GxE_counts)))
+plot(hc)
+```
+
+**What is the general pattern in the h-clustering data? Using what you learned from the city example, what is the subcluster that looks very different than the rest of the samples? ** 
+
+It's clustered by the different parts of the plant, and between R500 and IMB211. Also then it separates between NDP and DP.
+Around the middle, there's the IMB211_NDP_3_PETIOLE connected to the R500_DP_1(2)_PETIOLE(s). And on the right, the R500_NDP_1_PETIOLE is clustered with IMB211 samples. Whereas most of the others have IMB and R500 by themselves, these two areas have a mix of both.
+
+*Hint: It is a group of 3 libraries. You will have to plot this yourself and stretch it out. The rendering on the website compresses the output.*
+
+
+
+**EXERCISE 3:** 
+```{r}
+?rect.hclust
+```
+
+```{r}
+hc <- hclust(dist(t(GxE_counts)))
+plot(hc) 
+rect.hclust(hc, k = 4, border = "red")
+```
+
+**With k = 4 as one of the arguments to the `rect.hclust()` function, what is the largest and smallest group contained within the rectangles? Use characteristics in the sample name to describe the clusters.**  
+
+Largest: The cluster containing SILIQUE (27 samples in the subcluster)
+Smallest: R500_NDP_LEAF (3 samples in the cluster)
+
+
+**What does the k parameter specify?**
+
+It is the number of clusters we want from our data. 
+
+**Play with the k-values. Find a new k-value between 3 and 7 and describe how the samples are falling out.** 
+
+```{r}
+hc <- hclust(dist(t(GxE_counts)))
+plot(hc) 
+rect.hclust(hc, k = 6, border = "red")
+```
+
+COMPARED TO k=4: 
+Because we allowed more clusters, the SILIQUE samples are now grouped by themselves. The LEAF samples in the mid right (with both IMB211 and R500) have now also become its own group, and the rightmost cluster has separated into two subclusters- into INTERNODE and PETIOLE. It demonstrates more difference between the sample groups.
+
+```{r}
+hc <- hclust(dist(t(GxE_counts)))
+plot(hc) 
+rect.hclust(hc, k = 3, border = "red")
+```
+
+COMPARED TO k=4: 
+With a limit on clusters, the two rightmost subclusters have merged, showing that they're more similar to each other than they are to the other samples.
+
+**EXERCISE 4:** 
+
+Green values= “Bootstrap Percentage” (BP) values: percentage of bootstramp samples where that branch was observed. 
+
+Red values= “Approximate Unbiased” (AU) values: scale BP based on the number of samples that were taken. 
+
+Closer to 100= more support.
+
+```{r}
+library(pvclust)
+?pvclust
+
+set.seed(12456) 
+
+fit <- pvclust(GxE_counts, method.hclust = "ward.D", method.dist = "euclidean", nboot = 50)
+```
+
+```{r}
+plot(fit)
+```
+
+**After running the 50 bootstrap samples, leave the plot open. Then change `nboot` to 500. In general, what happens to AU comparing the two plots by flipping between them?**
+
+```{r}
+set.seed(12456) 
+fit2 <- pvclust(GxE_counts, method.hclust = "ward.D", method.dist = "euclidean", nboot = 500)
+```
+
+```{r}
+plot(fit2)
+```
+
+Compared to the 50 bootstrap samples, the 500 AU and BP both increased, but the BP increased only slightly while AU increased by more. The AU had more support at 500 bootstrap samples. 
+
+**Exercise 5: We used the scale rows option. This is necessary so that every *row* in the dataset will be on the same scale when visualized in the heatmap. This is to prevent really large values somewhere in the dataset dominating the heatmap signal. Remember if you still have this dataset in memory you can take a look at a printed version to the terminal. Compare the distance matrix that you printed with the colors of the heat map. See the advantage of working with small test sets? Take a look at your plot of the cities heatmap and interpret what a dark red value and a light yellow value in the heatmap would mean in geographic distance. Provide an example of of each in your explanation.**
+
+```{r}
+library(gplots) 
+head(cities)
+```
+
+```{r}
+cities_mat <- as.matrix(cities)
+cityclust <- hclust(dist(cities_mat))
+```
+
+```{r}
+?heatmap.2 
+heatmap.2(cities_mat, Rowv=as.dendrogram(cityclust), scale="row", density.info="none", trace="none")
+```
+
+Orange is the average distance across all the cities. Yellower probably means the distance is higher and farther from than average number, while redder means a lower distance but also farther from the average number. (So both yellow and red are both deviations of the orange distance, with a complete red block as 0 distance, thus explaining the red boxes when the cities are mapped to itself). LA and BOS have a yellow block, and they are fairly far apart from each other. On the other hand, BOS and DC are very close in relation to other cities, so it's red-orange. 
+
+
+**Exercise 6:** 
+
+```{r}
+hr <- hclust(dist(GxE_counts))
+plot(hr)
+```
+
+```{r}
+heatmap.2(GxE_counts, Rowv = as.dendrogram(hr), scale = "row", density.info="none", trace="none")
+```
+
+**The genes are definitely overplotted and we cannot tell one from another. However, what is the most obvious pattern that you can pick out from this data? Describe what you see. Make sure you plot this in your own session so you can stretch it out.**
+*Hint It will be a similar pattern as you noticed in the h-clustering example.*
+
+The leftmost cluster of 3 seems to be most clearly different from the whole heatmap. It is bright yellow (longer distance?).
+
+**Exercise 7: In the similar way that you interpreted the color values of the heatmap for the city example, come up with a biological interpretation of the yellow vs. red color values in the heatmap. What would this mean for the pattern that you described in exercise 6? Discuss.**
+
+One explanation could be that the heatmap represents expression levels so that yellow could be overexpression. Though, the samples are compared to each other, so it could also be something about the relative similarity between the samples. Perhaps like the distances between the cities, the samples from that yellow cluster are more differentiated (or have higher expression) compared to the other samples. 
+
+**Exercise 8: Now that you have a sense for how this k-means works, lets apply what we know to our data. Lets start with 9 clusters, but please play with the number of clusters and see how it changes the visualization. We will need to run a quick Principle Component Analysis (similar to MDS), on the data in order to visualize how the clusters are changing with different k-values.**
+
+```{r}
+library(ggplot2)
+prcomp_counts <- prcomp(t(GxE_counts)) #gene wise
+scores <- as.data.frame(prcomp_counts$rotation)[,c(1,2)]
+
+set.seed(25) #make this repeatable as kmeans has random starting positions
+fit3 <- kmeans(GxE_counts, 9)
+clus <- as.data.frame(fit3$cluster)
+names(clus) <- paste("cluster")
+
+plotting <- merge(clus, scores, by = "row.names")
+plotting$cluster <- as.factor(plotting$cluster)
+
+# plot of observations
+ggplot(data = plotting, aes(x = PC1, y = PC2, label = Row.names, color = cluster)) +
+  geom_hline(yintercept = 0, colour = "gray65") +
+  geom_vline(xintercept = 0, colour = "gray65") +
+  geom_point(alpha = 0.8, size = 4, stat = "identity") 
+```
+
+
+```{r}
+set.seed(25) #make this repeatable as kmeans has random starting positions
+fit4 <- kmeans(GxE_counts, 2)
+clus2 <- as.data.frame(fit4$cluster)
+names(clus2) <- paste("cluster")
+
+plotting2 <- merge(clus2, scores, by = "row.names")
+plotting2$cluster <- as.factor(plotting2$cluster)
+
+# plot of observations
+ggplot(data = plotting2, aes(x = PC1, y = PC2, label = Row.names, color = cluster)) +
+  geom_hline(yintercept = 0, colour = "gray65") +
+  geom_vline(xintercept = 0, colour = "gray65") +
+  geom_point(alpha = 0.8, size = 4, stat = "identity") 
+```
+
+```{r}
+set.seed(25) #make this repeatable as kmeans has random starting positions
+fit5 <- kmeans(GxE_counts, 5)
+clus3 <- as.data.frame(fit5$cluster)
+names(clus3) <- paste("cluster")
+
+plotting3 <- merge(clus3, scores, by = "row.names")
+plotting3$cluster <- as.factor(plotting3$cluster)
+
+# plot of observations
+ggplot(data = plotting3, aes(x = PC1, y = PC2, label = Row.names, color = cluster)) +
+  geom_hline(yintercept = 0, colour = "gray65") +
+  geom_vline(xintercept = 0, colour = "gray65") +
+  geom_point(alpha = 0.8, size = 4, stat = "identity") 
+```
+
+```{r}
+set.seed(25) #make this repeatable as kmeans has random starting positions
+fit6 <- kmeans(GxE_counts, 15)
+clus4 <- as.data.frame(fit6$cluster)
+names(clus4) <- paste("cluster")
+
+plotting4 <- merge(clus4, scores, by = "row.names")
+plotting4$cluster <- as.factor(plotting4$cluster)
+
+# plot of observations
+ggplot(data = plotting4, aes(x = PC1, y = PC2, label = Row.names, color = cluster)) +
+  geom_hline(yintercept = 0, colour = "gray65") +
+  geom_vline(xintercept = 0, colour = "gray65") +
+  geom_point(alpha = 0.8, size = 4, stat = "identity") 
+```
+
+**Pretty Colors! Describe what you see visually with 2, 5, 9, and 15 clusters using either method. Why would it be a bad idea to have to few or to many clusters? Discuss with a specific example comparing few vs. many k-means. Justify your choice of too many and too few clusters by describing what you see in each case.**
+
+With each cluster, we see the respective amount of colors separating the samples. 
+
+2 clusters: it's split diagonally. 
+
+5: It's not split diagonally down anymore but above and below the PC2 axis 0 line, and left and right on the PC1 axis.
+
+9: Now it's starting to cluster within and I see that even the dots in the same area can separate (4 and 7, the green and blue dots).
+
+15: The dots are separated into even more groups. It's a little more difficult to group by area because some colors span the graph more than others. 
+
+Visually, when there are too many clusters, some of the dots start to mix too much on the graph, which would make it more difficult to discern. With too few clusters, we have to group samples that may not fit that well with each other, so we have less information given. For example, if we compare the genes expressed on a leaf, stem, and roots of the plant, we'd probably want around 3 or so clusters, and see that genes on the leaf, stem, and roots are in their own clusters respectively. If we had too few (like 2 clusters) some of the genes from one group may separate. If we had too many, the genes may start to spread and we might not be able to use the plot given. 
+
+**Exercise 9:** 
+
+```{r}
+?clusGap
+```
+
+```{r}
+library(cluster)
+set.seed(125)
+gap <- clusGap(GxE_counts, FUN = kmeans, iter.max = 30, K.max = 20, B = 50, verbose=interactive())
+plot(gap, main = "Gap Statistic")
+```
+
+
+**Based on this Gap statistic plot at what number of k clusters (x-axis) do you start to see diminishing returns? To put this another way, at what value of k does k-1 and k+1 start to look the same for the first time? Or yet another way, when are you getting diminishing returns for adding more k-means? See if you can make the tradeoff of trying to capture a lot of variation in the data as the Gap statistic increases, but you do not want to add too many k-means because your returns diminish as you add more. Explain your answer using the plot as a guide to help you interpret the data.**
+
+From the plot, it seems the greatest difference is between k=3 to k=4, then the difference dimishes from k=4 to k=5. 
+It looks like at k=9, does k-1 and k+1 look like they're on similar levels for the first time.
+
+**Exercise 10: What did clusGap() calculate? How does this compare to your answer from Exercise 9? Make a plot using the kmeans functions as you did before, but choose the number of k-means you chose and the number of k-means that are calculated from the Gap Statistic. Describe the differences in the plots.**
+
+```{r}
+with(gap, maxSE(Tab[,"gap"], Tab[,"SE.sim"], method="firstSEmax"))
+```
+
+It calculated 4. It's more than half lower than what I saw on the plot (9). Just as I pointed out before, it seems the greatest return is after k=3 and before k=5.
+
+```{r}
+set.seed(25) #make this repeatable as kmeans has random starting positions
+fit3 <- kmeans(GxE_counts, 9)
+clus <- as.data.frame(fit3$cluster)
+names(clus) <- paste("cluster")
+
+plotting <- merge(clus, scores, by = "row.names")
+plotting$cluster <- as.factor(plotting$cluster)
+
+# plot of observations
+ggplot(data = plotting, aes(x = PC1, y = PC2, label = Row.names, color = cluster)) +
+  geom_hline(yintercept = 0, colour = "gray65") +
+  geom_vline(xintercept = 0, colour = "gray65") +
+  geom_point(alpha = 0.8, size = 4, stat = "identity") 
+```
+
+
+```{r}
+set.seed(25) #make this repeatable as kmeans has random starting positions
+fit7 <- kmeans(GxE_counts, 4)
+clus5 <- as.data.frame(fit7$cluster)
+names(clus5) <- paste("cluster")
+
+plotting5 <- merge(clus5, scores, by = "row.names")
+plotting5$cluster <- as.factor(plotting5$cluster)
+
+# plot of observations
+ggplot(data = plotting5, aes(x = PC1, y = PC2, label = Row.names, color = cluster)) +
+  geom_hline(yintercept = 0, colour = "gray65") +
+  geom_vline(xintercept = 0, colour = "gray65") +
+  geom_point(alpha = 0.8, size = 4, stat = "identity") 
+```
+
+The k=4 plot has more defined clusters, while k=9 is more mixed. The k=4 plot has fairly clear splits along both axes, while k=9 has overlapping cluster areas, and some dots that were in the same clusters are no longer so. 
